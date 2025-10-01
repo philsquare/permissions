@@ -18,6 +18,8 @@ abstract class BasePolicy implements ProvidesRolePermissions
             new ReflectionClass($arguments)->getShortName()
         );
 
+        $ability = Str::kebab($ability);
+
         $roles = $user->roles;
         $hasPermissions = false;
 

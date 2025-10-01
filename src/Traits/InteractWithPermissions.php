@@ -8,6 +8,6 @@ trait InteractWithPermissions
 {
     protected function permissions(): Permissions
     {
-        return Permissions::make(self::class);
+        return Permissions::make(static::class);
     }
 }
