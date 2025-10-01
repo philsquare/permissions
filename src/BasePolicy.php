@@ -33,9 +33,4 @@ abstract class BasePolicy implements ProvidesRolePermissions
 
         return false;
     }
-
-    public static function __callStatic(string $name, array $arguments): mixed
-    {
-        dd($name);
-    }
 }
