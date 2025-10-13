@@ -14,9 +14,9 @@ class PolicyMakeCommand extends PolicyBaseCommand
     protected function getStub()
     {
         return match(true) {
-          $this->hasOption('model') && $this->hasOption('withPermissions') => __DIR__ . '/../stubs/policy.permission.stub' ,
-          $this->hasOption('models') && !$this->hasOption('withPermissions') => $this->resolveStubPath('/stubs/policy.stub'),
-          default => $this->resolveStubPath('/stubs/policy.plain.stub'),
+            $this->option('model') && $this->options('withPermissions') => __DIR__ . '/../stubs/policy.permission.stub' ,
+            $this->option('model') && !$this->option('withPermissions') => $this->resolveStubPath('/stubs/policy.stub'),
+            default => $this->resolveStubPath('/stubs/policy.plain.stub'),
         };
     }
 
@@ -35,8 +35,8 @@ class PolicyMakeCommand extends PolicyBaseCommand
         $withPermissions = select(
             'Does this policy allow permissions?',
             [
-                1 => 'yes',
-                2 => 'no'
+                true => 'yes',
+                false => 'no'
             ]
         );
 

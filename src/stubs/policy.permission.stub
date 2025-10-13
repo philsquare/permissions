@@ -5,7 +5,7 @@ namespace {{ namespace }};
 use Illuminate\Auth\Access\Response;
 use {{ namespacedModel }};
 use {{ namespacedUserModel }};
-use Philsquare\Permissions;
+use Philsquare\Permissions\BasePolicy;
 
 class {{ class }} extends BasePolicy
 {
