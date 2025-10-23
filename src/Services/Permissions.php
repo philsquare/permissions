@@ -1,13 +1,10 @@
 <?php
 namespace Philsquare\Permissions\Services;
 
-use App\Helpers\Makeable;
 use Illuminate\Support\Collection;
 
 class Permissions
 {
-    use Makeable;
-
     public function __construct(protected string $class) {}
 
     protected array $ignore = [

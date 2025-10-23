@@ -1,13 +1,10 @@
 <?php
 namespace Philsquare\Permissions\Services;
 
-use App\Helpers\Makeable;
 use Illuminate\Support\Str;
 
 class NameBuilder
 {
-    use Makeable;
-
     public function __construct() {}
 
     public function build(string $policy, string $method)

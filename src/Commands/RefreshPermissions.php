@@ -76,7 +76,7 @@ class RefreshPermissions extends Command
             ->map(
                 fn ($methods, $role) => collect($methods)
                     ->map(
-                        fn ($method) => NameBuilder::make()->build($policy, $method)
+                        fn ($method) => new NameBuilder()->build($policy, $method)
                     )
                     ->each(
                         fn ($permission) => $this->rolesWithPermissions[$role][] = $permission
