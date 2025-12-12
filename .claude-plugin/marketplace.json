@@ -1,0 +1,23 @@
+{
+  "name": "philsquare-permissions",
+  "owner": {
+    "name": "Phil Mareu",
+    "email": "phil@philsquare.com"
+  },
+  "plugins": [
+    {
+      "name": "philsquare-permissions",
+      "source": ".",
+      "description": "Claude Code plugin for philsquare/permissions - policy-based role permissions for Laravel",
+      "version": "1.0.0",
+      "author": {
+        "name": "Phil Mareu",
+        "email": "phil@philsquare.com"
+      },
+      "repository": "https://github.com/philsquare/permissions",
+      "license": "MIT",
+      "keywords": ["laravel", "permissions", "roles", "authorization", "policy"],
+      "category": "framework"
+    }
+  ]
+}
