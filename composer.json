@@ -1,6 +1,14 @@
 {
   "name": "philsquare/permissions",
   "description": "Laravel policy scaffolding and permission management built on Spatie Permissions",
+  "keywords": [
+    "laravel",
+    "permissions",
+    "roles",
+    "authorization",
+    "policy",
+    "spatie"
+  ],
   "type": "library",
   "license": "MIT",
   "authors": [
@@ -10,6 +18,11 @@
       "homepage": "https://philsquare.com"
     }
   ],
+  "homepage": "https://github.com/philsquare/permissions",
+  "support": {
+    "issues": "https://github.com/philsquare/permissions/issues",
+    "source": "https://github.com/philsquare/permissions"
+  },
   "require": {
     "php": ">=8.1",
     "spatie/laravel-permission": "^6.21",
