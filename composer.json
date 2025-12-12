@@ -1,12 +1,13 @@
 {
   "name": "philsquare/permissions",
-  "description": "A global permissions package for philsquare",
+  "description": "Laravel policy scaffolding and permission management built on Spatie Permissions",
   "type": "library",
   "license": "MIT",
   "authors": [
     {
-      "name": "Phil",
-      "email": "phil@philsquare.com"
+      "name": "Phil Mareu",
+      "email": "phil@philsquare.com",
+      "homepage": "https://philsquare.com"
     }
   ],
   "require": {
