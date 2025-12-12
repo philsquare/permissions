@@ -356,6 +356,66 @@ public function rolePermissions(): array
 }
 ```
 
+## Claude Code Plugin
+
+This package includes a [Claude Code](https://claude.com/claude-code) plugin that provides AI-assisted permission implementation.
+
+### Features
+
+**Autonomous Implementation**: When you create a new policy in a project using this package, the plugin's agent will proactively offer to add role-based permissions - extending `BasePolicy` and implementing `rolePermissions()` with appropriate helpers.
+
+**Skill Knowledge**: The plugin provides Claude with knowledge about permission helpers, naming conventions, and best practices so it can correctly implement permissions without documentation lookups.
+
+**Commands**:
+- `/philsquare-permissions:refresh` - Run `permissions:refresh` to sync permissions
+- `/philsquare-permissions:make-policy <Model>` - Create a new policy with permissions scaffold
+
+### Installation
+
+The plugin is included in the package. To enable it in Claude Code:
+
+**Option 1: Using the /plugins command**
+
+Run `/plugins` in Claude Code and add `vendor/philsquare/permissions` as a local plugin.
+
+**Option 2: Manual configuration**
+
+Add the plugin path to your project's `.claude/settings.json`:
+
+```json
+{
+  "plugins": [
+    "vendor/philsquare/permissions"
+  ]
+}
+```
+
+### Plugin Structure
+
+```
+.claude-plugin/
+├── plugin.json           # Plugin manifest
+commands/
+├── refresh.md            # Refresh command
+├── make-policy.md        # Make policy command
+agents/
+├── permissions-implementer.md  # Autonomous agent
+skills/
+└── permissions-usage/
+    ├── SKILL.md          # Package knowledge
+    └── references/
+        └── permission-helpers.md
+```
+
+### Using the Plugin
+
+The plugin activates automatically in projects that have `philsquare/permissions` in their `composer.json`. When creating policies, Claude will:
+
+1. Detect the package is installed
+2. Extend `BasePolicy` instead of Laravel's base policy
+3. Add the `rolePermissions()` method with appropriate role mappings
+4. Remind you to run `permissions:refresh`
+
 ## License
 
 MIT
