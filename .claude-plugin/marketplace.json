@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "philsquare-permissions",
-      "source": ".",
+      "source": "./",
       "description": "Claude Code plugin for philsquare/permissions - policy-based role permissions for Laravel",
       "version": "1.0.0",
       "author": {
