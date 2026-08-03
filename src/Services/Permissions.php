@@ -14,6 +14,8 @@ class Permissions
         'deny',
         'permissions',
         'rolePermissions',
+        'before',
+        'after',
     ];
 
     protected array $crudMethods = [

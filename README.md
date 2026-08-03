@@ -4,9 +4,9 @@ A Laravel package for managing role-based permissions through policies. Define p
 
 ## Requirements
 
-- PHP 8.1+
-- Laravel 10+
-- [spatie/laravel-permission](https://github.com/spatie/laravel-permission) ^6.21
+- PHP 8.4+
+- Laravel 12+
+- [spatie/laravel-permission](https://github.com/spatie/laravel-permission) ^8.3
 
 ## Installation
 

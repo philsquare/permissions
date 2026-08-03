@@ -14,8 +14,8 @@ class PolicyMakeCommand extends PolicyBaseCommand
     protected function getStub()
     {
         return match(true) {
-            $this->option('model') && $this->options('withPermissions') => __DIR__ . '/../stubs/policy.permission.stub' ,
-            $this->option('model') && !$this->option('withPermissions') => $this->resolveStubPath('/stubs/policy.stub'),
+            $this->option('model') && $this->option('withPermissions') => __DIR__ . '/../stubs/policy.permission.stub',
+            (bool) $this->option('model') => $this->resolveStubPath('/stubs/policy.stub'),
             default => $this->resolveStubPath('/stubs/policy.plain.stub'),
         };
     }
@@ -24,7 +24,7 @@ class PolicyMakeCommand extends PolicyBaseCommand
     {
         return [
             ...parent::getOptions(),
-            ['withPermissions', 'wp', InputOption::VALUE_OPTIONAL, 'does the policy have permissions']
+            ['withPermissions', null, InputOption::VALUE_NONE, 'Generate the policy with a rolePermissions() map']
         ];
     }
 

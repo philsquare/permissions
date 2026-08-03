@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 use Philsquare\Permissions\Contracts\ProvidesRolePermissions;
 use Philsquare\Permissions\Traits\InteractWithPermissions;
 use ReflectionClass;
-use Spatie\Permission\Models\Role;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 abstract class BasePolicy implements ProvidesRolePermissions
 {
@@ -18,19 +18,18 @@ abstract class BasePolicy implements ProvidesRolePermissions
             new ReflectionClass($arguments)->getShortName()
         );
 
-        $ability = Str::kebab($ability);
+        $permission = $prefix.':'.Str::kebab($ability);
 
-        $roles = $user->roles;
-        $hasPermissions = false;
-
-        foreach ($roles as $role) {
-            if ($role->hasPermissionTo("$prefix:$ability")) {
-                $hasPermissions = true;
+        foreach ($user->roles as $role) {
+            try {
+                if ($role->hasPermissionTo($permission)) {
+                    return null;
+                }
+            } catch (PermissionDoesNotExist) {
+                // The permission was never registered, so no role can hold it.
+                // Deny rather than surfacing the exception to the caller.
+                return false;
             }
-        }
-
-        if ($hasPermissions) {
-            return null;
         }
 
         return false;
