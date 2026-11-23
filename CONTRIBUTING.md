@@ -2,9 +2,19 @@
 
 Contributions are welcome and will be fully credited.
 
+## Development
+
+```bash
+composer install
+composer test     # Pest
+composer format   # Pint
+composer analyse  # Larastan
+```
+
 ## Pull Requests
 
-- **[PSR-12 Coding Standard](https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-12-extended-coding-style-guide.md)** - The easiest way to apply the conventions is to use [PHP CS Fixer](https://github.com/FriendsOfPHP/PHP-CS-Fixer).
+- **Add tests** - Everything this package does affects who can reach what, so a change needs a test showing it works.
+- **Laravel coding style** - Run `composer format` before committing.
 - **Document any change in behaviour** - Make sure the README and any other relevant documentation are kept up-to-date.
 - **Create feature branches** - Don't ask us to pull from your master branch.
 - **One pull request per feature** - If you want to do more than one thing, send multiple pull requests.

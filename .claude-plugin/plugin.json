@@ -1,6 +1,6 @@
 {
   "name": "philsquare-permissions",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Claude Code plugin for philsquare/permissions - policy-based role permissions for Laravel",
   "author": {
     "name": "Phil Mareu",

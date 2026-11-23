@@ -9,7 +9,7 @@
       "name": "philsquare-permissions",
       "source": "./",
       "description": "Claude Code plugin for philsquare/permissions - policy-based role permissions for Laravel",
-      "version": "1.0.0",
+      "version": "3.0.0",
       "author": {
         "name": "Phil Mareu",
         "email": "phil@philsquare.com"

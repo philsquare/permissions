@@ -4,15 +4,13 @@ Complete reference for the `$this->permissions()` helper available in policies e
 
 ## How Permissions Service Works
 
-The `permissions()` method returns a `Permissions` service instance that introspects the policy class to find all public methods. It automatically excludes system methods:
+The `permissions()` method returns a `Permissions` service instance that introspects the policy class to find its public, non-static methods, including any inherited from a parent policy. It automatically excludes methods that aren't abilities:
 
 **Ignored methods:**
-- `denyWithStatus`
-- `denyAsNotFound`
-- `allow`
-- `deny`
-- `permissions`
 - `rolePermissions`
+- `before`
+- `after`
+- Magic methods, such as `__construct`
 
 ## Method Reference
 
@@ -77,7 +75,7 @@ Returns only the specified methods from the policy.
 'approver' => $this->permissions()->only(['view', 'approve', 'reject']),
 ```
 
-**Note:** Methods not defined on the policy will be silently excluded from the result.
+**Note:** Methods not defined on the policy will be silently excluded from the result. Names must match the method exactly, so `delete-draft` doesn't match `deleteDraft`, and the role won't get that permission.
 
 ### `except(array $methods): array`
 
@@ -92,6 +90,8 @@ Returns all methods except the specified ones.
 // Everything except admin-only actions
 'support' => $this->permissions()->except(['create', 'delete', 'forceDelete', 'restore']),
 ```
+
+`except()` and `crud()` match names the same way.
 
 ### `permissionList(): Collection`
 
@@ -261,14 +261,14 @@ class OrderPolicy extends BasePolicy
 ### Method not appearing in permissions
 
 Ensure the method:
-- Is public
+- Is public and not static
 - Is not in the ignored list
-- Is defined on the policy class (not inherited from BasePolicy)
-- Policy extends `BasePolicy`
+- Policy extends `BasePolicy`, or uses the `InteractWithPermissions` trait and defines `rolePermissions()`
 
 ### Role not being created
 
 Ensure:
-- Role name in `rolePermissions()` matches expected format (lowercase, kebab-case)
+- The policy has a `rolePermissions()` method and isn't abstract
+- The policy is in `app/Policies/`, or is registered with `Gate::policy()`
 - `permissions:refresh` completed without errors
 - Database connection is working

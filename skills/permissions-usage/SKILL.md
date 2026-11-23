@@ -45,9 +45,11 @@ class PostPolicy extends BasePolicy
 5. If permission missing, access denied immediately
 
 The `before()` hook converts:
-- Policy class: `PostPolicy` to `post`
+- Policy class: `PostPolicy` to `post` (folders are ignored, so `Billing\InvoicePolicy` is `invoice`)
 - Method: `updateEta` to `update-eta`
 - Combined: `post:update-eta`
+
+Only permissions held through a role count. One given directly to a user with `givePermissionTo()` doesn't pass this check.
 
 ### Permission Naming Convention
 
@@ -77,10 +79,12 @@ public function rolePermissions(): array
 
 ## Permission Helpers
 
-Access via `$this->permissions()` in any policy extending BasePolicy.
+Access via `$this->permissions()` in any policy extending BasePolicy. Each helper returns an array.
+
+Helpers take method names exactly as written: `deleteDraft`, not `delete-draft`. A name that matches no method is dropped without warning, leaving the role without that permission.
 
 ### `all()`
-Returns all public methods (excluding system methods like `before`, `allow`, `deny`).
+Returns all public, non-static policy methods, excluding `before`, `after`, `rolePermissions` and magic methods.
 
 ### `crud(array $additional = [])`
 Returns: `viewAny`, `view`, `create`, `update`, `delete` plus any additional methods.
@@ -127,9 +131,26 @@ After modifying policies, run:
 php artisan permissions:refresh
 ```
 
-This scans all policies extending BasePolicy and syncs role-permission mappings to the database.
+This finds every policy with a `rolePermissions()` method, in `app/Policies/` at any depth and any registered with `Gate::policy()`, and makes the database match in one transaction. A role no policy declares ends up with no permissions.
 
 **Add to deployment scripts** to auto-sync on deploy.
+
+## Filament
+
+Filament doesn't call a policy for an ability it has no method for, and allows the action. The package closes this for policies extending `BasePolicy`:
+
+| Ability left out of the policy | The user needs |
+|---|---|
+| `deleteAny`, `restore`, `forceDelete` | The permission for `delete` |
+| `restoreAny` | The permission for `restore`, or `delete` if the policy has no `restore()` |
+| `forceDeleteAny` | The permission for `forceDelete`, or `delete` if the policy has no `forceDelete()` |
+| `replicate` | The permission for `create` |
+| `reorder` | The permission for `update` |
+| `viewAny`, `view`, `create`, `update`, `delete` | Denied until the policy defines it |
+
+When a policy defines one of these, it's a permission of its own, and `crud()` doesn't include the bulk ones. Policies from `make:policy --withPermissions` define all of them, so grant them explicitly: `crud(['deleteAny'])`.
+
+Bulk actions run once for the whole selection, so record-level rules in `delete()` don't apply unless the action uses `->authorizeIndividualRecords()`.
 
 ## Defining Roles
 

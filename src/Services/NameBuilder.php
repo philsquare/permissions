@@ -1,13 +1,16 @@
 <?php
+
 namespace Philsquare\Permissions\Services;
 
 use Illuminate\Support\Str;
 
+/**
+ * The single source of permission names. Writing a permission (permissions:refresh)
+ * and checking one (BasePolicy::before) must agree, so both come through here.
+ */
 class NameBuilder
 {
-    public function __construct() {}
-
-    public function build(string $policy, string $method)
+    public function build(string $policy, string $method): string
     {
         return sprintf(
             '%s:%s',
@@ -16,10 +19,10 @@ class NameBuilder
         );
     }
 
-    protected function getModelFromPolicyName(string $policy)
+    protected function getModelFromPolicyName(string $policy): string
     {
-        return Str::of($policy)
-            ->remove(['App\\Policies\\', 'Policy'])
+        return Str::of(class_basename($policy))
+            ->replaceEnd('Policy', '')
             ->kebab()
             ->toString();
     }
