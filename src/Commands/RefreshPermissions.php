@@ -2,19 +2,21 @@
 
 namespace Philsquare\Permissions\Commands;
 
-use Philsquare\Permissions\Contracts\ProvidesRolePermissions;
-use Philsquare\Permissions\Services\NameBuilder;
-use Closure;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Gate;
+use Philsquare\Permissions\Services\NameBuilder;
 use ReflectionClass;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use Spatie\Permission\Contracts\Permission as PermissionContract;
+use Spatie\Permission\Contracts\Role as RoleContract;
+use Spatie\Permission\Guard;
 use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\Finder\SplFileInfo;
 
+#[AsCommand(name: 'permissions:refresh')]
 class RefreshPermissions extends Command
 {
     /**
@@ -29,189 +31,152 @@ class RefreshPermissions extends Command
      *
      * @var string
      */
-    protected $description = 'Updates permissions and reassigns all roles.';
+    protected $description = 'Sync roles and permissions from your policies to the database';
+
+    public function handle(PermissionRegistrar $registrar): int
+    {
+        $grants = $this->declaredGrants();
+
+        // An empty scan means something is wrong with discovery, not that every
+        // grant should go: syncing it would lock everyone out of the app.
+        if ($grants->isEmpty()) {
+            $this->components->warn('No policies declaring rolePermissions() were found. Nothing was changed.');
+
+            return self::SUCCESS;
+        }
+
+        $roleClass = $registrar->getRoleClass();
+        $permissionClass = $registrar->getPermissionClass();
+        $guard = Guard::getDefaultName($permissionClass);
+
+        try {
+            // One transaction, so requests keep seeing the old grants until the
+            // new ones are complete and a failure leaves the old ones in place.
+            (new $roleClass)->getConnection()->transaction(
+                fn () => $this->sync($grants, $roleClass, $permissionClass, $guard)
+            );
+        } finally {
+            // Also on failure: the Spatie cache may have been rebuilt from rows
+            // that have since been rolled back.
+            $registrar->forgetCachedPermissions();
+        }
+
+        $this->components->info(sprintf(
+            'Synced %d permissions across %d roles.',
+            $grants->flatten()->unique()->count(),
+            $grants->count()
+        ));
+
+        return self::SUCCESS;
+    }
 
     /**
-     * Registered list of roles for applying permissions.
+     * Make the role-permission pivot match the policies exactly. Any role a
+     * policy doesn't declare ends up with no permissions.
      *
-     * @var string[]
+     * @param  Collection<string, Collection<int, string>>  $grants
+     * @param  class-string<Model&RoleContract>  $roleClass
+     * @param  class-string<Model&PermissionContract>  $permissionClass
      */
-    protected array $rolesWithPermissions = [];
-
-    protected Collection $roles;
-
-    protected Collection $permissions;
-
-    public function handle(): int
+    protected function sync(Collection $grants, string $roleClass, string $permissionClass, string $guard): void
     {
-        $this->permissions = Permission::query()
-            ->get();
+        $permissionIds = $this->permissionIds($grants->flatten()->unique(), $permissionClass, $guard);
 
-        $this->buildRolePermissions();
+        $existingRoles = $roleClass::query()->where('guard_name', $guard)->pluck('name');
 
-        $this->setRoles();
+        $grants->keys()
+            ->diff($existingRoles)
+            ->each(fn (string $role) => $roleClass::create(['name' => $role, 'guard_name' => $guard]));
 
-        $this->clearPermissionsAssignments();
+        foreach ($roleClass::query()->get() as $role) {
+            $names = $role->getAttribute('guard_name') === $guard
+                ? ($grants[$role->getAttribute('name')] ?? [])
+                : [];
 
-        $this->applyPermissionsToRoles();
-
-        app()
-            ->make(PermissionRegistrar::class)
-            ->forgetCachedPermissions();
-
-        return 0;
+            $role->permissions()->sync($permissionIds->only($names)->values()->all());
+        }
     }
 
-    protected function buildRolePermissions()
+    /**
+     * @param  Collection<int, string>  $names
+     * @param  class-string<Model&PermissionContract>  $permissionClass
+     * @return Collection<string, int|string> Permission keys, by permission name.
+     */
+    protected function permissionIds(Collection $names, string $permissionClass, string $guard): Collection
     {
-        $this->getPolicies()
-            ->map(
-                fn ($policy) => $this->addToRolePermission($policy)
-            );
+        $permissions = $permissionClass::query()
+            ->where('guard_name', $guard)
+            ->pluck((new $permissionClass)->getKeyName(), 'name');
+
+        $names->diff($permissions->keys())->each(function (string $name) use ($permissions, $permissionClass, $guard): void {
+            // Through the query builder: Spatie's static create() re-reads its whole
+            // cached list for each new row, and throws if that cache is stale.
+            $permissions->put($name, $permissionClass::query()->create(['name' => $name, 'guard_name' => $guard])->getKey());
+        });
+
+        return $permissions;
     }
 
-    protected function addToRolePermission(string $policy)
+    /**
+     * @return Collection<string, Collection<int, string>> Permission names, by role.
+     */
+    protected function declaredGrants(): Collection
     {
-        collect($this->getPolicy($policy)->rolePermissions())
-            ->map(
-                fn ($methods, $role) => collect($methods)
-                    ->map(
-                        fn ($method) => new NameBuilder()->build($policy, $method)
-                    )
-                    ->each(
-                        fn ($permission) => $this->rolesWithPermissions[$role][] = $permission
-                    )
-            );
+        $nameBuilder = new NameBuilder;
+        $grants = [];
+
+        foreach ($this->policies() as $policy) {
+            foreach (app($policy)->rolePermissions() as $role => $methods) {
+                $grants[$role] ??= [];
+
+                foreach ($methods as $method) {
+                    $grants[$role][] = $nameBuilder->build($policy, $method);
+                }
+            }
+        }
+
+        return collect($grants)->map(fn (array $names) => collect($names)->unique()->values());
     }
 
-    protected function getPolicy(string $class)
+    /**
+     * Policies in the app's Policies folder, at any depth, plus any registered
+     * with Gate::policy(), which can live anywhere.
+     *
+     * @return array<int, string>
+     */
+    protected function policies(): array
     {
-        return new $class;
+        return collect($this->policiesInAppFolder())
+            ->merge(array_values(Gate::policies()))
+            ->unique()
+            ->filter(fn (string $class) => class_exists($class))
+            ->filter(fn (string $class) => method_exists($class, 'rolePermissions'))
+            ->filter(fn (string $class) => (new ReflectionClass($class))->isInstantiable())
+            ->values()
+            ->all();
     }
 
-    protected function setRoles()
+    /**
+     * @return array<int, string>
+     */
+    protected function policiesInAppFolder(): array
     {
-        $roles = Role::all();
+        $path = app_path('Policies');
 
-        collect($this->rolesWithPermissions)
-            ->keys()
-            ->filter(fn ($role) => $roles->doesntContain(
-                'name', $role
+        if (! File::isDirectory($path)) {
+            return [];
+        }
+
+        $namespace = app()->getNamespace().'Policies\\';
+
+        return collect(File::allFiles($path))
+            ->filter(fn (SplFileInfo $file) => $file->getExtension() === 'php')
+            ->map(fn (SplFileInfo $file) => $namespace.str_replace(
+                ['/', '.php'],
+                ['\\', ''],
+                $file->getRelativePathname()
             ))
-            ->each(fn ($role) => Role::create([
-                'name' => $role,
-            ]));
-
-        $this->roles = Role::all();
-    }
-
-    /**
-     * Remove all Nova permission assignments.
-     */
-    protected function clearPermissionsAssignments(): void
-    {
-        DB::table('role_has_permissions')
-            ->truncate();
-    }
-
-    /**
-     * Apply permissions to all roles appropriately.
-     */
-    protected function applyPermissionsToRoles()
-    {
-        collect($this->rolesWithPermissions)
-            ->each(fn ($permissions, $role) => $this->applyPermissions($permissions, $role));
-    }
-
-    /**
-     * Apply permissions to supplied role.
-     */
-    protected function applyPermissions(array $permissions, string $role): void
-    {
-        $role = $this->getRoleModel($role);
-
-        $permissions = collect($permissions)
-            ->map(fn ($permission) => $this->findOrCreatePermission(
-                $permission
-            ));
-
-        $role
-            ->permissions()
-            ->attach($permissions->pluck('id'));
-    }
-
-    /**
-     * Find or create permission and update permission list if needed.
-     */
-    protected function findOrCreatePermission(string $permission): Model
-    {
-        if ($this->permissionsExists($permission)) {
-            return $this->permissions->where('name', $permission)->first();
-        }
-
-        $permission = $this->createPermission($permission);
-
-        $this->permissions->push($permission);
-
-        return $permission;
-    }
-
-    /**
-     * Determine if permission exists in current list.
-     *
-     * @return bool
-     */
-    protected function permissionsExists(string $permission)
-    {
-        return $this
-            ->permissions
-            ->contains('name', $permission);
-    }
-
-    /**
-     * Create a new permission in storage.
-     */
-    protected function createPermission(string $permission): Model
-    {
-        return Permission::create([
-            'guard_name' => 'web',
-            'name' => $permission,
-        ]);
-    }
-
-    protected function getPolicies(): Collection
-    {
-        $policyPath = app_path('Policies');
-
-        if (! File::exists($policyPath)) {
-            return collect();
-        }
-
-        return collect(File::files($policyPath))
-            ->map(fn ($file) => $this->getClassName($file))
-            ->filter(fn ($class) => class_exists($class))
-            ->filter(fn ($class) => method_exists($class, 'rolePermissions'));
-    }
-
-    protected function getClassName($file): string
-    {
-        return 'App\\Policies\\'.$file->getBasename('.php');
-    }
-
-    protected function implementsInterface(string $class): bool
-    {
-        return (new ReflectionClass($class))
-            ->implementsInterface(ProvidesRolePermissions::class);
-    }
-
-    /**
-     * @return Closure|null
-     */
-    protected function getRoleModel(string $role): Role
-    {
-        return $this
-            ->roles
-            ->where('name', $role)
-            ->first();
+            ->values()
+            ->all();
     }
 }

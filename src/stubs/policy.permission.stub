@@ -2,7 +2,6 @@
 
 namespace {{ namespace }};
 
-use Illuminate\Auth\Access\Response;
 use {{ namespacedModel }};
 use {{ namespacedUserModel }};
 use Philsquare\Permissions\BasePolicy;
@@ -12,6 +11,7 @@ class {{ class }} extends BasePolicy
     public function rolePermissions(): array
     {
         return [
+            //
         ];
     }
 
@@ -67,6 +67,46 @@ class {{ class }} extends BasePolicy
      * Determine whether the user can permanently delete the model.
      */
     public function forceDelete({{ user }} $user, {{ model }} ${{ modelVariable }}): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can delete models in bulk.
+     */
+    public function deleteAny({{ user }} $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can restore models in bulk.
+     */
+    public function restoreAny({{ user }} $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can permanently delete models in bulk.
+     */
+    public function forceDeleteAny({{ user }} $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can replicate the model.
+     */
+    public function replicate({{ user }} $user, {{ model }} ${{ modelVariable }}): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can reorder models.
+     */
+    public function reorder({{ user }} $user): bool
     {
         return false;
     }

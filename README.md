@@ -5,8 +5,11 @@ A Laravel package for managing role-based permissions through policies. Define p
 ## Requirements
 
 - PHP 8.4+
-- Laravel 12+
+- Laravel 12 or 13
 - [spatie/laravel-permission](https://github.com/spatie/laravel-permission) ^8.3
+- [Filament](https://filamentphp.com) 5 is optional, and [supported with no setup](#filament)
+
+Upgrading from an earlier version? See [UPGRADE.md](UPGRADE.md).
 
 ## Installation
 
@@ -104,10 +107,11 @@ php artisan permissions:refresh
 ```
 
 This command:
-- Scans all policies in `app/Policies/` that extend `BasePolicy`
-- Creates any missing roles
-- Creates any missing permissions
-- Syncs role-permission assignments
+- Finds every policy with a `rolePermissions()` method, in `app/Policies/` at any depth and anywhere else you've registered one with `Gate::policy()`
+- Creates any missing roles and permissions
+- Makes each role's permissions match your policies exactly
+
+The sync runs in one transaction, so requests keep seeing the old permissions until the new ones are ready, and a failure changes nothing. A role that no policy declares ends up with no permissions.
 
 ### 3. Assign Roles to Users
 
@@ -122,9 +126,6 @@ $user->assignRole('editor');
 Use Laravel's built-in authorization:
 
 ```php
-// In controllers
-$this->authorize('update', $post);
-
 // Using Gate
 Gate::authorize('update', $post);
 
@@ -150,11 +151,30 @@ Permissions are stored in kebab-case format: `{model}:{action}`
 | `PostPolicy::forceDelete()` | `post:force-delete` |
 | `PurchaseOrderPolicy::updateEta()` | `purchase-order:update-eta` |
 
+The first part comes from the policy's class name, without its folder. `App\Policies\Billing\InvoicePolicy` uses `invoice:*`, so two policies with the same name in different folders share their permissions.
+
 ### The `before()` Hook
 
 When you extend `BasePolicy`, the `before()` method automatically checks if the user's roles have the required permission. If the permission exists, it returns `null` (allowing the policy method to execute). If not, it returns `false` (denying access).
 
 This means your policy methods define the *logic* for when an action should be allowed, and the role-permission mapping controls *who* can attempt it.
+
+Only permissions held through a role count. A permission given directly to a user with `givePermissionTo()` doesn't pass this check.
+
+To add your own check in front of the role check, override `before()` and call the parent:
+
+```php
+use Illuminate\Contracts\Auth\Authenticatable;
+
+public function before(Authenticatable $user, string $ability, mixed $subject = null): ?bool
+{
+    if (! Feature::active('orders')) {
+        return false;
+    }
+
+    return parent::before($user, $ability, $subject);
+}
+```
 
 ### Policy Method Return Values
 
@@ -172,7 +192,9 @@ The `before()` hook runs first. If the user lacks the permission, they're denied
 
 ## Permission Helpers
 
-The `permissions()` method provides helpers for building permission lists:
+The `permissions()` method provides helpers for building permission lists. Each one returns an array.
+
+Helpers take policy method names exactly as written, so use `deleteDraft`, not `delete-draft`. A name that doesn't match a method is dropped without warning, which leaves the role without that permission.
 
 ### `all()`
 
@@ -288,6 +310,51 @@ class OrderPolicy extends BasePolicy
 }
 ```
 
+## Filament
+
+The package works with Filament 5 panels as they are, but Filament treats policies differently from plain Laravel in two ways that matter here.
+
+### Abilities a policy doesn't define
+
+When a policy has no method for an ability, Filament doesn't call the policy, so `before()` never runs. It allows the action instead. A role with no delete access would still be able to use the `DeleteBulkAction` in every generated resource.
+
+The package closes this for policies extending `BasePolicy`:
+
+| Ability the policy leaves out | What the user needs |
+|---|---|
+| `deleteAny`, `restore`, `forceDelete` | The permission for `delete` |
+| `restoreAny` | The permission for `restore`, or for `delete` if the policy has no `restore()` |
+| `forceDeleteAny` | The permission for `forceDelete`, or for `delete` if the policy has no `forceDelete()` |
+| `replicate` | The permission for `create` |
+| `reorder` | The permission for `update` |
+| `viewAny`, `view`, `create`, `update`, `delete` | Denied until the policy defines it |
+
+So a role that can delete can also restore and permanently delete, until you say otherwise. To separate them, define `forceDelete()` on the policy, which makes it a permission of its own.
+
+An app's own `Gate::before()` callback, such as a super admin check, still takes priority. So does any ability you've defined with `Gate::define()`.
+
+Policies generated with `--withPermissions` define all of these abilities, so each one is its own permission that you grant explicitly. That also means they work with Filament's `strictAuthorization()`:
+
+```php
+'editor' => $this->permissions()->crud(['deleteAny', 'reorder']),
+```
+
+### Bulk actions and record rules
+
+Filament checks `deleteAny` once for the whole selection, so any record-level logic in your `delete()` method doesn't run for bulk deletes. If `delete()` has rules like "only drafts", ask Filament to check each record:
+
+```php
+DeleteBulkAction::make()->authorizeIndividualRecords();
+```
+
+Or turn this on for every bulk delete in a service provider:
+
+```php
+DeleteBulkAction::configureUsing(
+    fn (DeleteBulkAction $action) => $action->authorizeIndividualRecords()
+);
+```
+
 ## Commands
 
 ### `permissions:refresh`
@@ -301,9 +368,11 @@ Syncs all role permissions from policies to the database. Run this after:
 php artisan permissions:refresh
 ```
 
+If it finds no policies, it warns you and changes nothing.
+
 ### `make:policy --withPermissions`
 
-Creates a new policy that extends `BasePolicy`:
+Creates a new policy that extends `BasePolicy`, with a method for every ability Filament uses. `--model` is required, because the generated methods need it:
 
 ```bash
 php artisan make:policy ArticlePolicy --model=Article --withPermissions
@@ -372,23 +441,32 @@ This package includes a [Claude Code](https://claude.com/claude-code) plugin tha
 
 ### Installation
 
-The plugin is included in the package. To enable it in Claude Code:
+The plugin lives in this package's GitHub repository, which is also a plugin marketplace. In Claude Code, run:
 
-**Option 1: Using the /plugins command**
+```
+/plugin marketplace add philsquare/permissions
+/plugin install philsquare-permissions@philsquare-permissions
+```
 
-Run `/plugins` in Claude Code and add `vendor/philsquare/permissions` as a local plugin.
-
-**Option 2: Manual configuration**
-
-Add the plugin path to your project's `.claude/settings.json`:
+To set it up for everyone working on a project, commit this to the project's `.claude/settings.json` instead:
 
 ```json
 {
-  "plugins": [
-    "vendor/philsquare/permissions"
-  ]
+  "extraKnownMarketplaces": {
+    "philsquare-permissions": {
+      "source": {
+        "source": "github",
+        "repo": "philsquare/permissions"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "philsquare-permissions@philsquare-permissions": true
+  }
 }
 ```
+
+The plugin comes from the repository's default branch, so it describes the latest release.
 
 ### Plugin Structure
 
@@ -409,7 +487,7 @@ skills/
 
 ### Using the Plugin
 
-The plugin activates automatically in projects that have `philsquare/permissions` in their `composer.json`. When creating policies, Claude will:
+Once the plugin is enabled, Claude uses it when you work on policies. When creating policies, Claude will:
 
 1. Detect the package is installed
 2. Extend `BasePolicy` instead of Laravel's base policy

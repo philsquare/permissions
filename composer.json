@@ -1,45 +1,68 @@
 {
-  "name": "philsquare/permissions",
-  "description": "Laravel policy scaffolding and permission management built on Spatie Permissions",
-  "keywords": [
-    "laravel",
-    "permissions",
-    "roles",
-    "authorization",
-    "policy",
-    "spatie"
-  ],
-  "type": "library",
-  "license": "MIT",
-  "authors": [
-    {
-      "name": "Phil Mareu",
-      "email": "phil@philsquare.com",
-      "homepage": "https://philsquare.com"
+    "name": "philsquare/permissions",
+    "description": "Laravel policy scaffolding and permission management built on Spatie Permissions",
+    "keywords": [
+        "laravel",
+        "permissions",
+        "roles",
+        "authorization",
+        "policy",
+        "spatie"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Phil Mareu",
+            "email": "phil@philsquare.com",
+            "homepage": "https://philsquare.com"
+        }
+    ],
+    "homepage": "https://github.com/philsquare/permissions",
+    "support": {
+        "issues": "https://github.com/philsquare/permissions/issues",
+        "source": "https://github.com/philsquare/permissions"
+    },
+    "require": {
+        "php": "^8.4",
+        "laravel/framework": "^12.0|^13.0",
+        "spatie/laravel-package-tools": "^1.92",
+        "spatie/laravel-permission": "^8.3"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.0|^11.0",
+        "pestphp/pest": "^4.0|^5.0",
+        "pestphp/pest-plugin-laravel": "^4.0|^5.0",
+        "laravel/pint": "^1.0",
+        "larastan/larastan": "^3.0",
+        "filament/filament": "^5.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Philsquare\\Permissions\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Philsquare\\Permissions\\Tests\\": "tests/",
+            "App\\": "tests/Fixtures/app/"
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "format": "pint",
+        "analyse": "phpstan analyse --memory-limit=1G"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Philsquare\\Permissions\\PermissionsServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
-  ],
-  "homepage": "https://github.com/philsquare/permissions",
-  "support": {
-    "issues": "https://github.com/philsquare/permissions/issues",
-    "source": "https://github.com/philsquare/permissions"
-  },
-  "require": {
-    "php": "^8.4",
-    "spatie/laravel-permission": "^8.3",
-    "spatie/laravel-package-tools": "^1.92"
-  },
-  "autoload": {
-    "psr-4": {
-      "Philsquare\\Permissions\\": "src/"
-    }
-  },
-  "extra": {
-    "laravel": {
-      "providers": [
-        "Philsquare\\Permissions\\PermissionsServiceProvider"
-      ]
-    }
-  },
-  "minimum-stability": "dev",
-  "prefer-stable": true
 }

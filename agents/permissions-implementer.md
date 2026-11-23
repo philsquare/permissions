@@ -121,6 +121,16 @@ After implementing:
 **Important Notes:**
 
 - Policy methods return `true`/`false` for business logic; role checks happen in `before()` hook
-- The `before()` method is inherited from BasePolicy - do not override it
+- The `before()` method is inherited from BasePolicy. Only override it to add a check in front of the role check, and call `parent::before()`
 - Permission names are auto-generated: `ModelPolicy::methodName` becomes `model:method-name`
+- Helpers take method names exactly as written: `deleteDraft`, not `delete-draft`. A name that matches no method is dropped without warning, so check each one against the policy
 - Always check for existing rolePermissions() before adding a new one
+
+**Filament:**
+
+- When a policy leaves out `deleteAny`, `restore` or `forceDelete`, the user needs the permission for `delete`. `restoreAny` and `forceDeleteAny` follow `restore` and `forceDelete`
+- When a policy leaves out `replicate` or `reorder`, the user needs the permission for `create` or `update`
+- When a policy leaves out `viewAny`, `view`, `create`, `update` or `delete`, that ability is denied for everyone
+- A role that can delete can also permanently delete unless the policy defines `forceDelete()`. If that matters, define it
+- When a policy defines one of these abilities, it's a permission of its own. `crud()` doesn't include them, so grant them explicitly: `crud(['deleteAny'])`
+- If a policy's `delete()` has record-level rules, bulk deletes skip them unless the action uses `->authorizeIndividualRecords()`. Mention this to the user

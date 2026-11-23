@@ -1,37 +1,22 @@
 <?php
+
 namespace Philsquare\Permissions;
 
-use App\Models\User;
-use Illuminate\Support\Str;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Philsquare\Permissions\Contracts\ProvidesRolePermissions;
+use Philsquare\Permissions\Services\PermissionChecker;
 use Philsquare\Permissions\Traits\InteractWithPermissions;
-use ReflectionClass;
-use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 abstract class BasePolicy implements ProvidesRolePermissions
 {
     use InteractWithPermissions;
 
-    public function before(User $user, string $ability, $arguments): ?bool
+    /**
+     * Gate calls this with the model or class being authorized as $subject. The
+     * permission comes from the policy, so that is only here for overrides.
+     */
+    public function before(Authenticatable $user, string $ability, mixed $subject = null): ?bool
     {
-        $prefix = Str::kebab(
-            new ReflectionClass($arguments)->getShortName()
-        );
-
-        $permission = $prefix.':'.Str::kebab($ability);
-
-        foreach ($user->roles as $role) {
-            try {
-                if ($role->hasPermissionTo($permission)) {
-                    return null;
-                }
-            } catch (PermissionDoesNotExist) {
-                // The permission was never registered, so no role can hold it.
-                // Deny rather than surfacing the exception to the caller.
-                return false;
-            }
-        }
-
-        return false;
+        return (new PermissionChecker)->allows($user, static::class, $ability) ? null : false;
     }
 }

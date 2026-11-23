@@ -13,78 +13,21 @@ Create a new Laravel policy for the model `$model` with role-based permissions u
 
 1. First, check if the policy already exists at `app/Policies/{$model}Policy.php`
 2. If it exists, ask the user if they want to add permissions to the existing policy
-3. Create the policy file with the following structure:
+3. If it doesn't, generate it with the package's command:
 
-```php
-<?php
-
-namespace App\Policies;
-
-use App\Models\{$model};
-use App\Models\User;
-use Philsquare\Permissions\BasePolicy;
-
-class {$model}Policy extends BasePolicy
-{
-    public function rolePermissions(): array
-    {
-        return [
-            'admin' => $this->permissions()->all(),
-        ];
-    }
-
-    /**
-     * Determine whether the user can view any models.
-     */
-    public function viewAny(User $user): bool
-    {
-        return true;
-    }
-
-    /**
-     * Determine whether the user can view the model.
-     */
-    public function view(User $user, {$model} $model): bool
-    {
-        return true;
-    }
-
-    /**
-     * Determine whether the user can create models.
-     */
-    public function create(User $user): bool
-    {
-        return true;
-    }
-
-    /**
-     * Determine whether the user can update the model.
-     */
-    public function update(User $user, {$model} $model): bool
-    {
-        return true;
-    }
-
-    /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, {$model} $model): bool
-    {
-        return true;
-    }
-}
+```bash
+php artisan make:policy {$model}Policy --model={$model} --withPermissions
 ```
 
-4. Check if `app/Enums/Roles.php` exists and use it in rolePermissions() if available
-5. Register the policy in `app/Providers/AuthServiceProvider.php` if it uses explicit registration
-6. Remind the user to:
-   - Customize the `rolePermissions()` method with appropriate roles
-   - Update policy methods with business logic
+4. Fill in `rolePermissions()`. Check if a roles enum exists, such as `app/Enums/Roles.php`, and use it if so
+5. Remind the user to:
+   - Update the policy methods with business logic, since they all return `false` until then
    - Run `php artisan permissions:refresh` to sync permissions
 
 ## Notes
 
 - Use PascalCase for the model name
 - The policy will extend `BasePolicy` from philsquare/permissions
-- Policy methods return `true` by default - add business logic as needed
+- The policy defines every ability Filament uses, including `deleteAny`, `restoreAny`, `forceDeleteAny`, `replicate` and `reorder`. Each is its own permission, so grant the ones a role needs: `crud(['deleteAny'])`
+- Laravel discovers policies automatically, so there is nothing to register
 - Role permission checks happen automatically in the `before()` hook

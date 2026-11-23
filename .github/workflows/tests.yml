@@ -1,0 +1,52 @@
+name: tests
+
+on:
+  push:
+    branches: [production]
+  pull_request:
+  schedule:
+    # Weekly, so a Laravel, Filament or Spatie release that breaks this package
+    # is caught without waiting for a commit here.
+    - cron: '0 12 * * 1'
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+        laravel: ['12', '13']
+        stability: [prefer-lowest, prefer-stable]
+        include:
+          - laravel: '12'
+            testbench: '^10.0'
+            pest: '^4.0'
+          - laravel: '13'
+            testbench: '^11.0'
+            pest: '^5.0'
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} / ${{ matrix.stability }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Install dependencies
+        run: |
+          composer require --no-update --no-interaction "laravel/framework:^${{ matrix.laravel }}.0"
+          composer require --dev --no-update --no-interaction "orchestra/testbench:${{ matrix.testbench }}" "pestphp/pest:${{ matrix.pest }}" "pestphp/pest-plugin-laravel:${{ matrix.pest }}"
+          composer update --${{ matrix.stability }} --prefer-stable --prefer-dist --no-interaction
+      - run: composer test
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction
+      - run: composer format -- --test
+      - run: composer analyse
